@@ -1,0 +1,11 @@
+{
+  "name": "city-center-2027",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Панель проекта расширения Сити-Центра на основе Google Sheets",
+  "scripts": {
+    "start": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "check": "node --check app.js && node --check scripts/sync-sheet.mjs && node scripts/check-data.mjs",
+    "sync": "node scripts/sync-sheet.mjs"
+  }
+}

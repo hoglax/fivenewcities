@@ -1,0 +1,25 @@
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db=JSON.parse(await readFile(new URL('../data/snapshot.json',import.meta.url),'utf8'));
+assert.equal(db.schemaVersion,1);
+assert.equal(db.spreadsheetId,'17VLUhYE2MeV78FpBGQdUhig3JvAh2j_HaQ3GlzqCpIE');
+const n=v=>Number(String(v).replace(/[\s\u00a0\u202f]/g,'').replace(',','.'));
+const cities=db.tabs['Города'].slice(5,54).filter(r=>r[0]);
+assert.equal(cities.length,49,'Expected the complete 49-city source range');
+assert.equal(cities.filter(r=>r[5]!=null&&r[6]!=null).length,38);
+const flow=db.tabs['Денежный поток 2.0'];
+const start=flow.findIndex(r=>r[0]==='Дата'&&r[1]==='Месяц 2027');
+const monthly=flow.slice(start+1,start+39);
+assert.equal(monthly.length,38);
+let accumulated=0;
+for(const r of monthly){accumulated+=n(r[16]);assert.ok(Math.abs(accumulated-n(r[17]))<=monthly.length,'Rounded cumulative cash flow must agree with monthly flows');}
+const passport=db.tabs['Паспорт решения'];
+const deficit=n(passport.find(r=>r[0]==='Максимальный дефицит новой модели')[1]);
+assert.ok(Math.abs(-Math.min(...monthly.map(r=>n(r[17])))-deficit)<=1);
+const annual=monthly.filter(r=>n(r[1])>=1&&n(r[1])<=12).reduce((s,r)=>s+n(r[16]),0);
+assert.ok(Math.abs(annual-n(passport.find(r=>r[0]==='Поток за 2027')[1]))<=12);
+const funding=n(passport.find(r=>r[0]==='Финансирование новой версии')[1]);
+const reserve=n(passport.find(r=>r[0]==='Дополнительный резерв')[1]);
+assert.ok(Math.abs(funding-deficit-reserve)<=1);
+assert.equal(flow.find(r=>r[0]==='Сценарий')?.[1],'Базовый','The website monthly series must remain explicitly identified as the base scenario');
+console.log('Verified: 49 cities, 38 price pairs, 38 months; cash-flow, deficit, reserve and annual totals agree with the source.');

@@ -1,0 +1,47 @@
+name: Update Google Sheets snapshot
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: sheet-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify access is configured
+        id: access
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$SERVICE_ACCOUNT" ]; then
+            echo 'configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Google access is not configured. Existing snapshot retained.'
+          fi
+      - name: Read spreadsheet
+        if: steps.access.outputs.configured == 'true'
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: npm run sync
+      - name: Verify snapshot
+        if: steps.access.outputs.configured == 'true'
+        run: npm run check
+      - name: Save refreshed snapshot
+        if: steps.access.outputs.configured == 'true'
+        run: |
+          if ! git diff --quiet -- data/snapshot.json; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add data/snapshot.json
+            git commit -m 'Refresh read-only Google Sheets snapshot'
+            git push
+          fi

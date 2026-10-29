@@ -1,0 +1,13 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const root=new URL('../',import.meta.url);
+const [html,css,js,snapshot]=await Promise.all(['index.html','styles.css','app.js','data/snapshot.json'].map(p=>readFile(new URL(p,root),'utf8')));
+const data=JSON.parse(snapshot);
+const json=JSON.stringify(data).replace(/</g,'\\u003c');
+let code=js.replace("const r=await fetch('./data/snapshot.json',{cache:'no-cache'});",'const r=new Response(JSON.stringify(EMBEDDED_SNAPSHOT));');
+code=code.replace('async function refresh(){try{',"async function refresh(){if(location.protocol==='file:'){toast('Это автономная копия от '+date(db.capturedAt)+'. Для обновления скачайте новый файл сайта.');return;}try{");
+code=code.replace(/<\/script/gi,'<\\/script');
+const output=html.replace('  <link rel="stylesheet" href="./styles.css">','  <style>'+css+'</style>').replace('  <script src="./app.js" defer></script>','').replace('</body>','<script>const EMBEDDED_SNAPSHOT='+json+';\n'+code+'</script>\n</body>');
+const target=resolve(process.argv[2]||'city-center-offline.html');
+await writeFile(target,output);
+console.log('Standalone HTML written to '+target);

@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!\.env.example
+credentials*.json
+service-account*.json
+test-results/
+*.zip
+city-center-offline.html
